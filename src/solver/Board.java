@@ -18,6 +18,7 @@ public class Board {
   public final int height;
   public final boolean[] wall;
   public final boolean[] goal;
+  public final boolean[] deadSquare;
 
   public final int initialPlayer;
   public final int[] initialBoxes; // sorted
@@ -28,6 +29,8 @@ public class Board {
     int size = width * height;
     wall = new boolean[size];
     goal = new boolean[size];
+    deadSquare = new boolean[size];
+    boolean wallUp, wallDown, wallLeft, wallRight;
 
     int player = -1;
     int boxCount = 0;
@@ -43,6 +46,18 @@ public class Board {
           boxCount++;
         } else if (itemsData[r][c] == '@') {
           player = pos;
+        }
+
+        // DeadSquare Assignment Process
+        if (mapData[r][c] != '#' && mapData[r][c] != '.'){
+          wallUp = (r - 1 < 0) || mapData[r - 1][c] == '#';
+          wallDown = (r + 1 >= height) || mapData[r + 1][c] == '#';
+          wallLeft = (c - 1 < 0) || mapData[r][c - 1] == '#';
+          wallRight = (c + 1 >= width) || mapData[r][c + 1] == '#';
+
+          if ((wallUp || wallDown) && (wallLeft || wallRight)){
+            deadSquare[pos] = true;
+          }
         }
       }
     }

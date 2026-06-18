@@ -78,6 +78,11 @@ public class AStarSearch {
           || Arrays.binarySearch(current.boxes, behind) >= 0) {
         return null; // push blocked
       }
+
+      // DeadSquare Logic Addition (Early Pruning)
+      if (board.deadSquare[behind]){
+        return null;
+      }
       newBoxes = current.boxes.clone();
       newBoxes[boxIdx] = behind;
       Arrays.sort(newBoxes);
