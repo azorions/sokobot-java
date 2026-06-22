@@ -63,7 +63,7 @@ public class AStarSearch {
     return null;
   }
 
-// Checks if a box would be frozen in place
+// Frozen Box Checker
 private boolean isFrozen(int boxPosition, int[] currentBoxes){
   if (board.goal[boxPosition]){
     return false;
