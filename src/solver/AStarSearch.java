@@ -63,6 +63,28 @@ public class AStarSearch {
     return null;
   }
 
+// Checks if a box would be frozen in place
+private boolean isFrozen(int boxPosition, int[] currentBoxes){
+  if (board.goal[boxPosition]){
+    return false;
+  }
+
+  int up = board.step(boxPosition, 0), 
+      down = board.step(boxPosition, 1), 
+      left = board.step(boxPosition, 2), 
+      right = board.step(boxPosition, 3);
+
+  boolean isBlockedLeft = (left == -1 || board.wall[left] || Arrays.binarySearch(currentBoxes, left) >= 0),
+          isBlockedRight = (right == -1 || board.wall[right] || Arrays.binarySearch(currentBoxes, right) >= 0),
+          isBlockedHorizontal = isBlockedLeft && isBlockedRight;      
+
+  boolean isBlockedUp = (up == -1 || board.wall[up] || Arrays.binarySearch(currentBoxes, up) >= 0),
+          isBlockedDown = (down == -1 || board.wall[down] || Arrays.binarySearch(currentBoxes, down) >= 0),
+          isBlockedVertical = isBlockedUp && isBlockedDown;
+
+  return isBlockedHorizontal && isBlockedVertical;
+}
+
   /** One player step in dir: walk into a free square, or push a box if one
    *  is there and the square beyond it is free. Returns null if illegal. */
   private State tryMove(State current, int dir) {
@@ -83,9 +105,26 @@ public class AStarSearch {
       if (board.deadSquare[behind]){
         return null;
       }
+
       newBoxes = current.boxes.clone();
       newBoxes[boxIdx] = behind;
       Arrays.sort(newBoxes);
+
+      // Freeze Deadlock Detection (More Pruning)
+      if (isFrozen(behind, newBoxes)){
+        return null;
+      }
+      
+      // More Freeze Deadlock Detection (Even More Pruning)
+      int d, neighborPosition;
+      for (d = 0; d < 4; d++){
+        neighborPosition = board.step(behind, d);
+        if (neighborPosition != -1 && Arrays.binarySearch(newBoxes, neighborPosition) >= 0){
+          if (isFrozen(neighborPosition, newBoxes)){
+            return null; 
+          } 
+        }
+      }
     }
     int h = heuristic.estimate(newBoxes);
     return new State(newBoxes, dest, current.g + 1, h, current,
