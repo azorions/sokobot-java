@@ -3,30 +3,32 @@ package solver;
 import java.util.Arrays;
 
 /**
- * Immutable search node for move-based vanilla A*.
- *
- * Vanilla version: identity is the EXACT player square plus the box layout.
- * There is no player-position normalization, so the same box layout with the
- * player on a different square counts as a different state.
- */
+  Search node for push-based A*. Identity is the box layout plus the player's
+  normalized square: the player position is collapsed to the smallest square
+  reachable (without moving a box) from where the player actually stands, so
+  every walking-only variation of the same box layout maps to one state.
+*/
 public class State {
   public final int[] boxes;   // sorted positions
-  public final int player;    // exact player square (part of identity)
-  public final int g;         // player moves so far
-  public final int h;         // heuristic estimate
+  public final int player;    // normalized (canonical) reachable player square
+  public final int g;         // pushes so far
+  public final int h;         // heuristic estimate (lower bound on pushes left)
 
   public final State parent;
-  public final char move;     // move that produced this state ('\0' for root)
+  public final int pushFrom;  // square the player stood on before the push (-1 for root)
+  public final int pushDir;   // direction of the push (-1 for root)
 
   private final int hash;
 
-  public State(int[] boxes, int player, int g, int h, State parent, char move) {
+  public State(int[] boxes, int player, int g, int h, State parent,
+      int pushFrom, int pushDir) {
     this.boxes = boxes;
     this.player = player;
     this.g = g;
     this.h = h;
     this.parent = parent;
-    this.move = move;
+    this.pushFrom = pushFrom;
+    this.pushDir = pushDir;
     this.hash = Arrays.hashCode(boxes) * 31 + player;
   }
 

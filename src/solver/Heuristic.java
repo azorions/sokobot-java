@@ -1,10 +1,10 @@
 package solver;
 
-/**
- * Vanilla heuristic: for each box, the Manhattan distance to its nearest
- * goal, summed over all boxes. Admissible but weak — it ignores walls, the
- * player, other boxes, and the fact that two boxes cannot share one goal.
- */
+/*
+  For each box, the Manhattan distance to its nearest
+  goal, summed over all boxes. Admissible but weak — it ignores walls, the
+  player, other boxes, and the fact that two boxes cannot share one goal.
+*/
 public class Heuristic {
   private final Board board;
   private final int[] goals;
@@ -27,7 +27,7 @@ public class Heuristic {
     }
   }
 
-  /** Sum over boxes of Manhattan distance to the nearest goal. */
+  // Sum over boxes of Manhattan distance to the nearest goal.
   public int estimate(int[] boxes) {
     int total = 0;
     for (int box : boxes) {

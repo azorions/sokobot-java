@@ -1,32 +1,42 @@
 package solver;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 
-/**
- * Vanilla (textbook) A* over PLAYER MOVES. Every node is one player step
- * (u/d/l/r); pushing a box is just a move whose destination holds a box.
- *
- * Compared with the optimized solver there is:
- *   - no push-based abstraction (every walking step is a node)
- *   - no player-position normalization
- *   - no dead-square or freeze-deadlock pruning
- *   - no weighting (plain f = g + h)
+/*
+  A node is a box layout plus the player's reachable region
+  (normalized to a canonical square). Successors are box pushes: for each box
+  and direction, the player must be able to reach the pushing square and the
+  destination must be free. This collapses every walking-only variation of a
+  layout into a single state, which is the key to scaling past tiny maps.
+
+  g counts pushes; the Manhattan heuristic is a lower bound on remaining
+  pushes, so f = g + h stays admissible. The player's walk between pushes is
+  recomputed only along the solution path when building the move string.
  */
 public class AStarSearch {
   private final Board board;
   private final Heuristic heuristic;
+  private final int size;
 
   public AStarSearch(Board board) {
     this.board = board;
     this.heuristic = new Heuristic(board);
+    this.size = board.width * board.height;
   }
 
-  /** Returns the move string, or null if no solution found before the deadline. */
+  // Returns the move string, or null if no solution found before the deadline. 
   public String solve(long deadlineNanos) {
-    State start = new State(board.initialBoxes, board.initialPlayer,
-        0, heuristic.estimate(board.initialBoxes), null, '\0');
+    int startPlayer = normalize(board.initialPlayer, board.initialBoxes);
+    State start = new State(board.initialBoxes, startPlayer, 0,
+        heuristic.estimate(board.initialBoxes), null, -1, -1);
 
     PriorityQueue<State> open = new PriorityQueue<>(
         (a, b) -> a.f() != b.f() ? Integer.compare(a.f(), b.f())
@@ -47,88 +57,154 @@ public class AStarSearch {
       if (isGoal(current.boxes)) {
         return reconstruct(current);
       }
-
-      for (int dir = 0; dir < 4; dir++) {
-        State next = tryMove(current, dir);
-        if (next == null) {
-          continue;
-        }
-        Integer known = bestG.get(next);
-        if (known == null || next.g < known) {
-          bestG.put(next, next.g);
-          open.add(next);
-        }
-      }
+      expand(current, open, bestG);
     }
     return null;
   }
 
-// Frozen Box Checker
-private boolean isFrozen(int boxPosition, int[] currentBoxes){
-  if (board.goal[boxPosition]){
-    return false;
-  }
+  private void expand(State current, PriorityQueue<State> open,
+      HashMap<State, Integer> bestG) {
+    boolean[] box = occupancy(current.boxes);
+    boolean[] reach = reachable(current.player, box);
 
-  int up = board.step(boxPosition, 0), 
-      down = board.step(boxPosition, 1), 
-      left = board.step(boxPosition, 2), 
-      right = board.step(boxPosition, 3);
+    for (int i = 0; i < current.boxes.length; i++) {
+      int p = current.boxes[i];
+      for (int dir = 0; dir < 4; dir++) {
+        int dest = board.step(p, dir);
+        // destination must be free for the box to move into it
+        if (dest == -1 || board.wall[dest] || box[dest]) {
+          continue;
+        }
+        // player must be able to stand on the opposite side and reach it
+        int from = board.step(p, dir ^ 1);
+        if (from == -1 || board.wall[from] || box[from] || !reach[from]) {
+          continue;
+        }
 
-  boolean isBlockedLeft = (left == -1 || board.wall[left] || Arrays.binarySearch(currentBoxes, left) >= 0),
-          isBlockedRight = (right == -1 || board.wall[right] || Arrays.binarySearch(currentBoxes, right) >= 0),
-          isBlockedHorizontal = isBlockedLeft && isBlockedRight;      
+        // DeadSquare Logic Addition (Early Pruning)
+        if (board.deadSquare[dest]) {
+          continue;
+        }
 
-  boolean isBlockedUp = (up == -1 || board.wall[up] || Arrays.binarySearch(currentBoxes, up) >= 0),
-          isBlockedDown = (down == -1 || board.wall[down] || Arrays.binarySearch(currentBoxes, down) >= 0),
-          isBlockedVertical = isBlockedUp && isBlockedDown;
+        int[] newBoxes = current.boxes.clone();
+        newBoxes[i] = dest;
+        Arrays.sort(newBoxes);
 
-  return isBlockedHorizontal && isBlockedVertical;
-}
+        // Freeze Deadlock Detection (More Pruning)
+        if (isFrozen(dest, newBoxes)) {
+          continue;
+        }
 
-  /** One player step in dir: walk into a free square, or push a box if one
-   *  is there and the square beyond it is free. Returns null if illegal. */
-  private State tryMove(State current, int dir) {
-    int dest = board.step(current.player, dir);
-    if (dest == -1 || board.wall[dest]) {
-      return null;
-    }
-    int boxIdx = Arrays.binarySearch(current.boxes, dest);
-    int[] newBoxes = current.boxes;
-    if (boxIdx >= 0) {
-      int behind = board.step(dest, dir);
-      if (behind == -1 || board.wall[behind]
-          || Arrays.binarySearch(current.boxes, behind) >= 0) {
-        return null; // push blocked
-      }
+        // More Freeze Deadlock Detection (Even More Pruning)
+        int d, neighborPosition;
+        boolean deadlocked = false;
+        for (d = 0; d < 4; d++) {
+          neighborPosition = board.step(dest, d);
+          if (neighborPosition != -1 && Arrays.binarySearch(newBoxes, neighborPosition) >= 0) {
+            if (isFrozen(neighborPosition, newBoxes)) {
+              deadlocked = true;
+              break;
+            }
+          }
+        }
+        if (deadlocked) {
+          continue;
+        }
 
-      // DeadSquare Logic Addition (Early Pruning)
-      if (board.deadSquare[behind]){
-        return null;
-      }
-
-      newBoxes = current.boxes.clone();
-      newBoxes[boxIdx] = behind;
-      Arrays.sort(newBoxes);
-
-      // Freeze Deadlock Detection (More Pruning)
-      if (isFrozen(behind, newBoxes)){
-        return null;
-      }
-      
-      // More Freeze Deadlock Detection (Even More Pruning)
-      int d, neighborPosition;
-      for (d = 0; d < 4; d++){
-        neighborPosition = board.step(behind, d);
-        if (neighborPosition != -1 && Arrays.binarySearch(newBoxes, neighborPosition) >= 0){
-          if (isFrozen(neighborPosition, newBoxes)){
-            return null; 
-          } 
+        int newPlayer = normalize(p, newBoxes); // after the push the player stands on p
+        int g = current.g + 1;
+        State next = new State(newBoxes, newPlayer, g, heuristic.estimate(newBoxes),
+            current, from, dir);
+        Integer known = bestG.get(next);
+        if (known == null || g < known) {
+          bestG.put(next, g);
+          open.add(next);
         }
       }
     }
-    int h = heuristic.estimate(newBoxes);
-    return new State(newBoxes, dest, current.g + 1, h, current,
-        Board.DIR_CHAR[dir]);
+  }
+
+  // Player reachability / normalization 
+  private boolean[] occupancy(int[] boxes) {
+    boolean[] box = new boolean[size];
+    for (int b : boxes) {
+      box[b] = true;
+    }
+    return box;
+  }
+
+  // Squares the player can walk to from {@code start} without moving a box. 
+  private boolean[] reachable(int start, boolean[] box) {
+    boolean[] seen = new boolean[size];
+    ArrayDeque<Integer> queue = new ArrayDeque<>();
+    seen[start] = true;
+    queue.add(start);
+    while (!queue.isEmpty()) {
+      int cur = queue.poll();
+      for (int d = 0; d < 4; d++) {
+        int nx = board.step(cur, d);
+        if (nx != -1 && !seen[nx] && !board.wall[nx] && !box[nx]) {
+          seen[nx] = true;
+          queue.add(nx);
+        }
+      }
+    }
+    return seen;
+  }
+
+  // Canonical player square = smallest index reachable in the given layout. 
+  private int normalize(int player, int[] boxes) {
+    boolean[] reach = reachable(player, occupancy(boxes));
+    for (int i = 0; i < size; i++) {
+      if (reach[i]) {
+        return i;
+      }
+    }
+    return player; // a floor square always reaches at least itself
+  }
+
+  // Freeze-deadlock detection 
+
+  // A box is frozen iff it is off-goal and cannot ever move along EITHER axis.
+  private boolean isFrozen(int boxPosition, int[] boxes) {
+    if (board.goal[boxPosition]) {
+      return false;
+    }
+    return blockedOnAxis(boxPosition, true, boxes, new HashSet<>())
+        && blockedOnAxis(boxPosition, false, boxes, new HashSet<>());
+  }
+
+  private boolean blockedOnAxis(int pos, boolean horizontal, int[] boxes,
+      Set<Integer> asWall) {
+    int a = board.step(pos, horizontal ? 2 : 0);
+    int b = board.step(pos, horizontal ? 3 : 1);
+
+    // Rule 1: wall / off-grid / recursion-wall on either side.
+    boolean wallA = (a == -1 || board.wall[a] || asWall.contains(a));
+    boolean wallB = (b == -1 || board.wall[b] || asWall.contains(b));
+    if (wallA || wallB) {
+      return true;
+    }
+
+    // Rule 2: both sides are simple-deadlock squares (a, b are valid here).
+    if (board.deadSquare[a] && board.deadSquare[b]) {
+      return true;
+    }
+
+    // Rule 3: a neighbor box that is itself frozen on the perpendicular axis.
+    boolean boxA = Arrays.binarySearch(boxes, a) >= 0;
+    boolean boxB = Arrays.binarySearch(boxes, b) >= 0;
+    if (boxA || boxB) {
+      asWall.add(pos); // current box acts as a wall while we recurse
+      boolean blocked =
+          (boxA && blockedOnAxis(a, !horizontal, boxes, asWall))
+          || (boxB && blockedOnAxis(b, !horizontal, boxes, asWall));
+      asWall.remove(pos);
+      if (blocked) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean isGoal(int[] boxes) {
@@ -140,12 +216,61 @@ private boolean isFrozen(int boxPosition, int[] currentBoxes){
     return true;
   }
 
-  /** Walks the parent chain back to the root, collecting one char per move. */
+  // Move-string reconstruction 
+
+  /*
+    Walks the parent chain and, for each push, replays the player's shortest
+    walk (in that parent's layout) up to the pushing square, then the push.
+  */
   private String reconstruct(State goalState) {
-    StringBuilder moves = new StringBuilder();
+    List<State> path = new ArrayList<>();
     for (State s = goalState; s.parent != null; s = s.parent) {
-      moves.append(s.move);
+      path.add(s);
     }
-    return moves.reverse().toString();
+    Collections.reverse(path);
+
+    StringBuilder moves = new StringBuilder();
+    int player = board.initialPlayer; // the player's real square, threaded forward
+    for (State s : path) {
+      boolean[] box = occupancy(s.parent.boxes);
+      moves.append(walkPath(player, s.pushFrom, box));
+      moves.append(Board.DIR_CHAR[s.pushDir]);
+      player = board.step(s.pushFrom, s.pushDir); // push leaves the player on the vacated square
+    }
+    return moves.toString();
+  }
+
+  // Shortest sequence of u/d/l/r moving the player from start to target.
+  private String walkPath(int start, int target, boolean[] box) {
+    if (start == target) {
+      return "";
+    }
+    int[] prev = new int[size];
+    int[] viaDir = new int[size];
+    Arrays.fill(prev, -1);
+    boolean[] seen = new boolean[size];
+    ArrayDeque<Integer> queue = new ArrayDeque<>();
+    seen[start] = true;
+    queue.add(start);
+    while (!queue.isEmpty()) {
+      int cur = queue.poll();
+      if (cur == target) {
+        break;
+      }
+      for (int d = 0; d < 4; d++) {
+        int nx = board.step(cur, d);
+        if (nx != -1 && !seen[nx] && !board.wall[nx] && !box[nx]) {
+          seen[nx] = true;
+          prev[nx] = cur;
+          viaDir[nx] = d;
+          queue.add(nx);
+        }
+      }
+    }
+    StringBuilder rev = new StringBuilder();
+    for (int at = target; at != start; at = prev[at]) {
+      rev.append(Board.DIR_CHAR[viaDir[at]]);
+    }
+    return rev.reverse().toString();
   }
 }

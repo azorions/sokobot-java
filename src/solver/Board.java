@@ -2,12 +2,12 @@ package solver;
 
 import java.util.Arrays;
 
-/**
- * Static level data parsed once from the GUI's two-layer grids.
- * Positions are encoded as a single int: row * width + col.
- *
- * Vanilla version: no precomputed push distances, no dead-square detection.
- * The board only knows about walls, goals, and the starting positions.
+/*
+  Static level data parsed once from the GUI's two-layer grids.
+  Positions are encoded as a single int: row * width + col.
+ 
+  No precomputed push distances, no dead-square detection.
+  The board only knows about walls, goals, and the starting positions.
  */
 public class Board {
   public static final int[] DIR_ROW = { -1, 1, 0, 0 };
@@ -75,7 +75,7 @@ public class Board {
     initialPlayer = player;
   }
 
-  /** Neighbor of pos in direction dir, or -1 if it leaves the grid. */
+  // Neighbor of pos in direction dir, or -1 if it leaves the grid.
   public int step(int pos, int dir) {
     int r = pos / width + DIR_ROW[dir];
     int c = pos % width + DIR_COL[dir];
