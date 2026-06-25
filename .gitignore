@@ -1,0 +1,5 @@
+# Compiled Java bytecode (rebuilt on every run by sokobot.bat / freeplay.bat)
+*.class
+
+# check-mode scratch output
+temp.txt
