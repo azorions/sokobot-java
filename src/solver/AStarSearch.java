@@ -63,27 +63,120 @@ public class AStarSearch {
     return null;
   }
 
-// Frozen Box Checker
+// Based on the pruning techniques of Niklas Peters' Sokoban Thesis
+private boolean isBlockedHorizontal(int boxPosition, boolean[] visited, int[] boxes){
+  int i = Arrays.binarySearch(boxes, boxPosition);
+  if (i < 0){
+    return false;
+  }
+    
+
+  if (visited[i]){
+    return false;
+  }
+
+  visited[i] = true;
+  int left = board.step(boxPosition, 2), 
+      right = board.step(boxPosition, 3);
+
+  // Condition 1: A wall on either sides blocks horizontal movement
+  if (left == -1 || board.wall[left] || right == -1 || board.wall[right]){
+    return true;
+  }
+
+  // Condition 2: A deadsquare on both sides block horizontal movement
+  if (board.deadSquare[left] && board.deadSquare[right]){
+    return true;
+  }
+
+  // Condition 3.1: A box on the left that is already blocked (requires some propagation)
+  if (Arrays.binarySearch(boxes, left) >= 0){
+    if (isBlockedHorizontal(left, visited, boxes)){
+      return true;
+    }
+  } 
+  // Condition 3.2: A box on the right that is already blocked (requires some propagation)
+  if (Arrays.binarySearch(boxes, right) >= 0){
+    if (isBlockedHorizontal(right, visited, boxes)){
+      return true;
+    }
+  }
+
+  return false; 
+}
+
+private boolean isBlockedVertical(int boxPosition, boolean[] visited, int[] boxes){
+  int i = Arrays.binarySearch(boxes, boxPosition);
+  if (i < 0){
+    return false;
+  }
+    
+
+  if (visited[i]){
+    return false;
+  }
+
+  visited[i] = true;
+  int up = board.step(boxPosition, 0), 
+      down = board.step(boxPosition, 1);
+      
+  // Condition 1: A wall on either sides blocks horizontal movement
+  if (up == -1 || board.wall[up] || down == -1 || board.wall[down]){
+    return true;
+  }
+
+  // Condition 2: A deadsquare on both sides block horizontal movement
+  if (board.deadSquare[up] && board.deadSquare[down]){
+    return true;
+  }
+
+  // Condition 3.1: A box on the top that is already blocked (requires some propagation)
+  if (Arrays.binarySearch(boxes, up) >= 0){
+    if (isBlockedVertical(up, visited, boxes)){
+      return true;
+    }
+  } 
+  // Condition 3.2: A box on the bottom that is already blocked (requires some propagation)
+  if (Arrays.binarySearch(boxes, down) >= 0){
+    if (isBlockedVertical(down, visited, boxes)){
+      return true;
+    }
+  }
+
+  return false; 
+}
+
+// Frozen Box Checker (had to revise cuz I realized the first one was kinda trashh)
 private boolean isFrozen(int boxPosition, int[] currentBoxes){
   if (board.goal[boxPosition]){
     return false;
   }
 
-  int up = board.step(boxPosition, 0), 
-      down = board.step(boxPosition, 1), 
-      left = board.step(boxPosition, 2), 
-      right = board.step(boxPosition, 3);
+  boolean[] visitedHorizontal = new boolean[currentBoxes.length];
+  if (!isBlockedHorizontal(boxPosition, visitedHorizontal, currentBoxes)){
+    return false;
+  }
 
-  boolean isBlockedLeft = (left == -1 || board.wall[left] || Arrays.binarySearch(currentBoxes, left) >= 0),
-          isBlockedRight = (right == -1 || board.wall[right] || Arrays.binarySearch(currentBoxes, right) >= 0),
-          isBlockedHorizontal = isBlockedLeft && isBlockedRight;      
+  boolean[] visitedVertical = new boolean[currentBoxes.length];
+  return isBlockedVertical(boxPosition, visitedVertical, currentBoxes);
+  
+  // int up = board.step(boxPosition, 0), 
+  //     down = board.step(boxPosition, 1), 
+  //     left = board.step(boxPosition, 2), 
+  //     right = board.step(boxPosition, 3);
 
-  boolean isBlockedUp = (up == -1 || board.wall[up] || Arrays.binarySearch(currentBoxes, up) >= 0),
-          isBlockedDown = (down == -1 || board.wall[down] || Arrays.binarySearch(currentBoxes, down) >= 0),
-          isBlockedVertical = isBlockedUp && isBlockedDown;
+  // boolean isBlockedLeft = (left == -1 || board.wall[left] || Arrays.binarySearch(currentBoxes, left) >= 0),
+  //         isBlockedRight = (right == -1 || board.wall[right] || Arrays.binarySearch(currentBoxes, right) >= 0),
+  //         isBlockedHorizontal = isBlockedLeft && isBlockedRight;      
 
-  return isBlockedHorizontal && isBlockedVertical;
+  // boolean isBlockedUp = (up == -1 || board.wall[up] || Arrays.binarySearch(currentBoxes, up) >= 0),
+  //         isBlockedDown = (down == -1 || board.wall[down] || Arrays.binarySearch(currentBoxes, down) >= 0),
+  //         isBlockedVertical = isBlockedUp && isBlockedDown;
+
+  // return isBlockedHorizontal && isBlockedVertical;
 }
+
+
 
   /** One player step in dir: walk into a free square, or push a box if one
    *  is there and the square beyond it is free. Returns null if illegal. */
