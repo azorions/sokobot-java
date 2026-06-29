@@ -133,7 +133,7 @@ public class AStarSearch {
     return box;
   }
 
-  // Squares the player can walk to from {@code start} without moving a box. 
+  // Squares the player can walk to from start without moving a box. 
   private boolean[] reachable(int start, boolean[] box) {
     boolean[] seen = new boolean[size];
     ArrayDeque<Integer> queue = new ArrayDeque<>();
@@ -165,7 +165,7 @@ public class AStarSearch {
 
   // Freeze-deadlock detection 
 
-  // A box is frozen iff it is off-goal and cannot ever move along EITHER axis.
+  // A box is frozen if it is off-goal and cannot ever move along either axis.
   private boolean isFrozen(int boxPosition, int[] boxes) {
     if (board.goal[boxPosition]) {
       return false;
@@ -220,7 +220,7 @@ public class AStarSearch {
 
   /*
     Walks the parent chain and, for each push, replays the player's shortest
-    walk (in that parent's layout) up to the pushing square, then the push.
+    walk up to the pushing square, then the push.
   */
   private String reconstruct(State goalState) {
     List<State> path = new ArrayList<>();
