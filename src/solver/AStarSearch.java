@@ -21,8 +21,8 @@ public class AStarSearch {
     this.size = board.width * board.height;
   }
 
-  // Returns the move string, or null if no solution found before the deadline. 
-  public String solve(long deadlineNanos) {
+  // returns the move string, or null if the puzzle has no solution
+  public String solve() {
     int startPlayer = normalize(board.initialPlayer, board.initialBoxes);
     State start = new State(board.initialBoxes, startPlayer, 0,
         heuristic.estimate(board.initialBoxes), null, -1, -1);
@@ -34,11 +34,7 @@ public class AStarSearch {
     open.add(start);
     bestG.put(start, 0);
 
-    int expanded = 0;
     while (!open.isEmpty()) {
-      if ((++expanded & 1023) == 0 && System.nanoTime() > deadlineNanos) {
-        return null; // out of time
-      }
       State current = open.poll();
       if (current.g > bestG.getOrDefault(current, Integer.MAX_VALUE)) {
         continue; // stale queue entry
@@ -113,7 +109,6 @@ public class AStarSearch {
     }
   }
 
-  // Player reachability / normalization 
   private boolean[] occupancy(int[] boxes) {
     boolean[] box = new boolean[size];
     for (int b : boxes) {
@@ -202,8 +197,6 @@ public class AStarSearch {
     }
     return true;
   }
-
-  // Move-string reconstruction 
 
   /*
     walks the parent chain and, for each push, replays the player's shortest
