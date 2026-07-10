@@ -2,12 +2,6 @@ package solver;
 
 import java.util.Arrays;
 
-/**
-  Search node for push-based A*. Identity is the box layout plus the player's
-  normalized square: the player position is collapsed to the smallest square
-  reachable (without moving a box) from where the player actually stands, so
-  every walking-only variation of the same box layout maps to one state.
-*/
 public class State {
   public final int[] boxes;   // sorted positions
   public final int player;    // normalized (canonical) reachable player square
