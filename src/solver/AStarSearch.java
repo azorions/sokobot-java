@@ -152,9 +152,7 @@ public class AStarSearch {
     return player; // a floor square always reaches at least itself
   }
 
-  // Freeze-deadlock detection 
-
-  // A box is frozen if it is off-goal and cannot ever move along either axis.
+  // Freeze-deadlock detection  A box is frozen if it is off-goal and cannot ever move along either axis.
   private boolean isFrozen(int boxPosition, int[] boxes) {
     if (board.goal[boxPosition]) {
       return false;
