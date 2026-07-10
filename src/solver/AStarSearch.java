@@ -152,7 +152,7 @@ public class AStarSearch {
     return player; // a floor square always reaches at least itself
   }
 
-  // Freeze-deadlock detection  A box is frozen if it is off-goal and cannot ever move along either axis.
+  // Freeze-deadlock detection a box is frozen if it is off-goal and cannot ever move along either axis.
   private boolean isFrozen(int boxPosition, int[] boxes) {
     if (board.goal[boxPosition]) {
       return false;
@@ -206,7 +206,7 @@ public class AStarSearch {
   // Move-string reconstruction 
 
   /*
-    Walks the parent chain and, for each push, replays the player's shortest
+    walks the parent chain and, for each push, replays the player's shortest
     walk up to the pushing square, then the push.
   */
   private String reconstruct(State goalState) {
@@ -227,7 +227,7 @@ public class AStarSearch {
     return moves.toString();
   }
 
-  // Shortest sequence of u/d/l/r moving the player from start to target.
+  // shortest sequence of u/d/l/r moving the player from start to target.
   private String walkPath(int start, int target, boolean[] box) {
     if (start == target) {
       return "";
