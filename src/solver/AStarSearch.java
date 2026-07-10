@@ -10,17 +10,6 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-/*
-  A node is a box layout plus the player's reachable region
-  (normalized to a canonical square). Successors are box pushes: for each box
-  and direction, the player must be able to reach the pushing square and the
-  destination must be free. This collapses every walking-only variation of a
-  layout into a single state, which is the key to scaling past tiny maps.
-
-  g counts pushes; the Manhattan heuristic is a lower bound on remaining
-  pushes, so f = g + h stays admissible. The player's walk between pushes is
-  recomputed only along the solution path when building the move string.
- */
 public class AStarSearch {
   private final Board board;
   private final Heuristic heuristic;
