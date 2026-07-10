@@ -1,8 +1,8 @@
 package solver;
 
 /*
-  For each box, the Manhattan distance to its nearest
-  goal, summed over all boxes. Admissible but weak — it ignores walls, the
+  for each box the manhattan distance to its nearest
+  goal, summed over all boxes. admissible but weak, it ignores walls, the
   player, other boxes, and the fact that two boxes cannot share one goal.
 */
 public class Heuristic {
